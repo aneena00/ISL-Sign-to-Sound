@@ -4,101 +4,102 @@ import torch
 import numpy as np
 import pyttsx3
 import threading
-import mediapipe as mp
+import queue
 from model import SignLSTM
 from mediapipe_extractor import MediaPipeFeatureExtractor
 
-# 1. Setup paths and device
+# 1. Setup & Device
 DATASET_PATH = r"D:\signtosound\data\INDIAN_SIGN_LANGUAGE_NUMPY_ARRAY_SKELETAL_POINT_DATASET\data"
 MODEL_PATH = "isl_model.pth"
 device = torch.device("cpu") 
 
-mp_drawing = mp.solutions.drawing_utils
-mp_hands = mp.solutions.hands
-
-# 2. Load Model & Labels
 labels = sorted(os.listdir(DATASET_PATH))
 model = SignLSTM(len(labels)).to(device)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.eval()
 
 extractor = MediaPipeFeatureExtractor()
+engine = pyttsx3.init()
+audio_queue = queue.Queue()
 
-# Robust Audio Threading
-def speak(text):
-    def _thread():
-        try:
-            local_engine = pyttsx3.init()
-            local_engine.say(text)
-            local_engine.runAndWait()
-            local_engine.stop()
-        except: pass
-    threading.Thread(target=_thread, daemon=True).start()
+def audio_worker():
+    while True:
+        text = audio_queue.get()
+        if text is None: break
+        engine.say(text)
+        engine.runAndWait()
+        audio_queue.task_done()
+
+threading.Thread(target=audio_worker, daemon=True).start()
+
+# --- FULL SCREEN SETUP ---
+WINDOW_NAME = "ISL Translator"
+cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 cap = cv2.VideoCapture(0)
 sequence = []
-predictions_buffer = [] 
+sentence = []
 last_spoken = ""
-
-print("--- ISL TRANSLATOR: CONFIDENCE TARGET 0.98 ---")
+stability_buffer = []
 
 while True:
     ret, frame = cap.read()
     if not ret: break
     
-    frame = cv2.flip(frame, 1) 
+    frame = cv2.flip(frame, 1)
+    # Create black frame for skeleton
     black_frame = np.zeros_like(frame)
     feat = extractor.extract_features(frame)
     
-    # Check if hand is detected to prevent ghosting
-    hand_detected = extractor.hands_result and extractor.hands_result.multi_hand_landmarks
-
-    if hand_detected:
+    if extractor.hands_result and extractor.hands_result.multi_hand_landmarks:
+        # Draw landmarks on the black frame
         for hand_landmarks in extractor.hands_result.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(black_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            import mediapipe as mp
+            mp.solutions.drawing_utils.draw_landmarks(
+                black_frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS)
         
         sequence.append(feat)
-        sequence = sequence[-30:] # LSTM window size
+        sequence = sequence[-30:]
 
         if len(sequence) == 30:
             x = torch.from_numpy(np.array([sequence])).float().to(device)
             with torch.no_grad():
                 res = model(x)
                 prob = torch.nn.functional.softmax(res, dim=1)
-                confidence, pred_idx = torch.max(prob, 1)
+                max_prob, idx = torch.max(prob, dim=1)
                 
-                conf_val = confidence.item()
-                text = labels[pred_idx.item()]
+                prediction = labels[idx.item()]
+                confidence = max_prob.item()
 
-                # Terminal Monitor
-                print(f"Confidence: {conf_val:.2f} | Predict: {text}", end='\r')
+                stability_buffer.append(prediction)
+                stability_buffer = stability_buffer[-15:]
 
-                # --- AUDIO LOGIC: Above 98% Confidence ONLY ---
-                if conf_val >= 0.98: 
-                    predictions_buffer.append(text)
-                    predictions_buffer = predictions_buffer[-15:] # Stability check
-
-                    if len(predictions_buffer) == 15 and len(set(predictions_buffer)) == 1:
-                        if text != last_spoken:
-                            speak(text)
-                            last_spoken = text
-
-                    # Visual feedback for high confidence
-                    cv2.putText(black_frame, f"Confirmed: {text} ({conf_val*100:.1f}%)", (10, 60), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
+                # Only speak if confidence is high and stable
+                if confidence >= 0.98 and stability_buffer.count(prediction) == 15:
+                    status_text = f"Confirmed: {prediction} ({confidence:.2f})"
+                    color = (0, 255, 0)
+                    if prediction != last_spoken:
+                        audio_queue.put(prediction)
+                        last_spoken = prediction
                 else:
-                    # Low confidence status
-                    cv2.putText(black_frame, f"Detecting: {text}...", (10, 60), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
+                    status_text = f"Detecting: {prediction} ({confidence:.2f})"
+                    color = (0, 255, 255)
+
+                cv2.putText(black_frame, status_text, (50, 50), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
     else:
-        # Reset memory when hand is gone
         sequence = []
-        predictions_buffer = []
-        cv2.putText(black_frame, "No Hand Detected", (10, 60), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 2)
+        stability_buffer = []
+        cv2.putText(black_frame, "No Hand Detected", (50, 50), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-    cv2.imshow("ISL Translator", black_frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'): break
+    # Display the processed black frame in the full-screen window
+    cv2.imshow(WINDOW_NAME, black_frame)
+    
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
+audio_queue.put(None)
 cap.release()
 cv2.destroyAllWindows()
