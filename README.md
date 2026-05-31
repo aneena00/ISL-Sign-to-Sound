@@ -1,4 +1,4 @@
- Sign2Sound Multimodal: Sign Language Translation Protocol
+## Sign2Sound Multimodal: Sign Language Translation Protocol
 
 An interactive, real-time multimodal deep learning application that extracts human skeletal hand configurations and facial emotion frames via web camera to translate Indian Sign Language (ISL) gestures dynamically into continuous typed words and spoken speech strings.
 
