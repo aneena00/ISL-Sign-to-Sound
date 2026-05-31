@@ -2,7 +2,7 @@
 
 An interactive, real-time multimodal deep learning application that extracts human skeletal hand configurations and facial emotion frames via web camera to translate Indian Sign Language (ISL) gestures dynamically into continuous typed words and spoken speech strings.
 
- Core Features
+# Core Features
 
 * Real-Time Gesture Tracking: Utilizes MediaPipe to cleanly map 21 hand landmarks across dual spatial fields.
 * Sequential Classification Engine: Powered by a deep Long Short-Term Memory (LSTM) network processing structural inputs over 30-frame temporal sequence windows.
