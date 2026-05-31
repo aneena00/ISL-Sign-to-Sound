@@ -1,8 +1,5 @@
+torch
+numpy
 opencv-python
 mediapipe
-torch
-torchvision
-numpy
 pyttsx3
-scikit-learn
-tqdm
