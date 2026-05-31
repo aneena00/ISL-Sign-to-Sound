@@ -1,8 +1,8 @@
-## Sign2Sound Multimodal: Sign Language Translation Protocol
+# Sign2Sound Multimodal: Sign Language Translation Protocol
 
 An interactive, real-time multimodal deep learning application that extracts human skeletal hand configurations and facial emotion frames via web camera to translate Indian Sign Language (ISL) gestures dynamically into continuous typed words and spoken speech strings.
 
-# Core Features
+## Core Features
 
 * Real-Time Gesture Tracking: Utilizes MediaPipe to cleanly map 21 hand landmarks across dual spatial fields.
 * Sequential Classification Engine: Powered by a deep Long Short-Term Memory (LSTM) network processing structural inputs over 30-frame temporal sequence windows.
@@ -13,7 +13,7 @@ An interactive, real-time multimodal deep learning application that extracts hum
 * Black Screen UX Layout: Blocks ambient background environments to present an optimized, distraction-free graphical viewport displaying glowing milestone skeletal topologies.
 * Integrated Facial Contrast Analyzer: Dynamically estimates eye, eyebrow, and mouth variance configurations to update live user emotional state metrics concurrently with gesture processing.
 
- System Architecture & File Layout
+## System Architecture & File Layout
 
 * `webcam_sign_to_sound.py` - Core multi-threaded execution file managing webcam collection, structural UI rendering, and keyboard inputs.
 * `model.py` - Contains the structural definition of the **SignLSTM** network layers.
@@ -21,7 +21,7 @@ An interactive, real-time multimodal deep learning application that extracts hum
 * `mediapipe_extractor.py` - Extracted layer translating 3D coordinates into fixed feature maps.
 * `requirements.txt` - File holding system dependencies.
 
- Dataset Specifications & Missing Label Optimization
+## Dataset Specifications & Missing Label Optimization
 
 The network evaluates geometric arrays containing standardized positional values extracted across 25 dedicated character sets (A-Z).
 
